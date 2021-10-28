@@ -35,8 +35,8 @@ namespace ModuleHW
         {
             try
             {
-                TasksAsync(20, 100);
-                WaitAsync(4);
+                TasksAsync(38, 70);
+                WaitAsync(10);
                 Log();
                 Print();
                 Console.ReadKey();
@@ -61,7 +61,7 @@ namespace ModuleHW
             }
 
             _taskList.Add(Task.Run(() => FibonacciTask1Async(), _token));
-            _taskList.Add(Task.Run(() => FibonacciTask2(f, t), _token));
+            _taskList.Add(Task.Run(() => FibonacciTask2Async(f, t), _token));
 
             await Task.WhenAll(_taskList);
         }
@@ -93,15 +93,16 @@ namespace ModuleHW
         }
 
         /// <summary>
-        /// FibonacciTask2.
+        /// FibonacciTask2Async.
         /// </summary>
         /// <param name="f">Start number to calculate Fibonacci from to 0.</param>
         /// <param name="t">The number of cycles.</param>
-        public void FibonacciTask2(int f, int t)
+        public async void FibonacciTask2Async(int f, int t)
         {
             try
             {
-                Console.WriteLine($"{nameof(FibonacciTask2)} started: {DateTime.Now:hh:mm:ss}");
+                Console.WriteLine($"{nameof(FibonacciTask2Async)} started: {DateTime.Now:hh:mm:ss}");
+
                 for (int j = 0; j < t; j++)
                 {
                     for (var i = f; i >= 0; i--)
@@ -111,7 +112,7 @@ namespace ModuleHW
                             return;
                         }
 
-                        _list2.Add(Task.Run(() => Fibonacci(i), _token).GetAwaiter().GetResult());
+                        _list2.Add(await Task.Run(() => Fibonacci(i), _token));
                     }
                 }
 
@@ -120,7 +121,7 @@ namespace ModuleHW
             }
             catch (OperationCanceledException ex)
             {
-                Console.WriteLine($"{nameof(FibonacciTask2)}: {ex?.GetType().Name}: {ex?.Message}");
+                Console.WriteLine($"{nameof(FibonacciTask2Async)}: {ex?.GetType().Name}: {ex?.Message}");
                 _isCanceled = true;
             }
         }
@@ -171,12 +172,12 @@ namespace ModuleHW
             {
                 if (_token.IsCancellationRequested)
                 {
-                    Console.WriteLine($"{nameof(FibonacciTask2)} has been canceled by CancellationToken!");
+                    Console.WriteLine($"{nameof(FibonacciTask2Async)} has been canceled by CancellationToken!");
                 }
 
                 if (_isCompleted || _isCanceled)
                 {
-                    Console.WriteLine($"{nameof(FibonacciTask2)} finished: {DateTime.Now:hh:mm:ss}");
+                    Console.WriteLine($"{nameof(FibonacciTask2Async)} finished: {DateTime.Now:hh:mm:ss}");
                     PrintInternal();
                     break;
                 }
