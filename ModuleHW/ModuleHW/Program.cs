@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace ModuleHW
+﻿namespace ModuleHW
 {
     public class Program
     {

@@ -10,46 +10,58 @@ namespace ModuleHW
     {
         private readonly List<Task> _taskList;
         private readonly List<Task<int>> _list1;
-        private readonly List<Task<int>> _list2;
+        private readonly List<int> _list2;
         private readonly StringBuilder _sb1;
         private readonly StringBuilder _sb2;
         private readonly CancellationTokenSource _cts;
         private readonly CancellationToken _token;
+        private bool _isCompleted;
+        private bool _isCanceled;
 
         public Starter()
         {
             _taskList = new List<Task>();
             _list1 = new List<Task<int>>();
-            _list2 = new List<Task<int>>();
+            _list2 = new List<int>();
             _sb1 = new StringBuilder();
             _sb2 = new StringBuilder();
             _cts = new CancellationTokenSource();
             _token = _cts.Token;
+            _isCompleted = false;
+            _isCanceled = false;
         }
 
         public void Run()
         {
-            TasksAsync();
-            Log();
-            Print();
-            Console.ReadKey();
-            _cts?.Dispose();
+            try
+            {
+                TasksAsync(20, 100);
+                WaitAsync(4);
+                Log();
+                Print();
+                Console.ReadKey();
+                _cts?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"{nameof(Run)}: {ex?.GetType().Name}: {ex?.Message}");
+            }
         }
 
-        public async void TasksAsync()
+        /// <summary>
+        /// TasksAsync.
+        /// </summary>
+        /// <param name="f">Start number to calculate Fibonacci from to 0.</param>
+        /// <param name="t">The number of cycles.</param>
+        public async void TasksAsync(int f, int t)
         {
-            if (_taskList == default)
+            if (_taskList == null)
             {
                 return;
             }
 
-            var f1 = Task.Run(() => FibonacciTask1Async(), _token);
-            var f2 = Task.Run(() => FibonacciTask2Async(), _token);
-            var wait = Task.Run(() => Wait(10), _token);
-
-            _taskList.Add(f1);
-            _taskList.Add(f2);
-            _taskList.Add(wait);
+            _taskList.Add(Task.Run(() => FibonacciTask1Async(), _token));
+            _taskList.Add(Task.Run(() => FibonacciTask2(f, t), _token));
 
             await Task.WhenAll(_taskList);
         }
@@ -61,35 +73,56 @@ namespace ModuleHW
                 return;
             }
 
-            _list1.Add(Task.Run(() => Fibonacci(0)));
-            _list1.Add(Task.Run(() => Fibonacci(1)));
-            _list1.Add(Task.Run(() => Fibonacci(2)));
-            _list1.Add(Task.Run(() => Fibonacci(3)));
-            _list1.Add(Task.Run(() => Fibonacci(4)));
-            _list1.Add(Task.Run(() => Fibonacci(5)));
+            try
+            {
+                _list1.Add(Task.Run(() => Fibonacci(0), _token));
+                _list1.Add(Task.Run(() => Fibonacci(1), _token));
+                _list1.Add(Task.Run(() => Fibonacci(2), _token));
+                _list1.Add(Task.Run(() => Fibonacci(3), _token));
+                _list1.Add(Task.Run(() => Fibonacci(4), _token));
+                _list1.Add(Task.Run(() => Fibonacci(5), _token));
+                _list1.Add(Task.Run(() => Fibonacci(15), _token));
 
-            await Task.WhenAll(_list1);
+                await Task.WhenAll(_list1);
+            }
+            catch (OperationCanceledException ex)
+            {
+                Console.WriteLine($"{nameof(FibonacciTask1Async)}: {ex?.GetType().Name}: {ex?.Message}");
+                _isCanceled = true;
+            }
         }
 
-        public async void FibonacciTask2Async()
+        /// <summary>
+        /// FibonacciTask2.
+        /// </summary>
+        /// <param name="f">Start number to calculate Fibonacci from to 0.</param>
+        /// <param name="t">The number of cycles.</param>
+        public void FibonacciTask2(int f, int t)
         {
-            Console.WriteLine($"{nameof(FibonacciTask2Async)} started: {DateTime.Now:hh:mm:ss}");
-
-            for (var i = 40; i >= 0; i--)
+            try
             {
-                if (_list2 == null)
+                Console.WriteLine($"{nameof(FibonacciTask2)} started: {DateTime.Now:hh:mm:ss}");
+                for (int j = 0; j < t; j++)
                 {
-                    return;
+                    for (var i = f; i >= 0; i--)
+                    {
+                        if (_list2 == null)
+                        {
+                            return;
+                        }
+
+                        _list2.Add(Task.Run(() => Fibonacci(i), _token).GetAwaiter().GetResult());
+                    }
                 }
 
-                _list2.Add(Task.Run(() => Fibonacci(i)));
-
-                await Task.WhenAll(_list2);
+                _isCompleted = true;
+                _cts.Cancel();
             }
-
-            _cts?.Cancel();
-
-            Console.WriteLine($"{nameof(FibonacciTask2Async)} finished: {DateTime.Now:hh:mm:ss}");
+            catch (OperationCanceledException ex)
+            {
+                Console.WriteLine($"{nameof(FibonacciTask2)}: {ex?.GetType().Name}: {ex?.Message}");
+                _isCanceled = true;
+            }
         }
 
         public int Fibonacci(int n)
@@ -111,63 +144,77 @@ namespace ModuleHW
 
             while (true)
             {
-                while (_token.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                while (_list1?.Count > c1 && _list1[c1]?.Result != default)
+                if (_list1?.Count > c1 && _list1[c1]?.Result != default)
                 {
                     _sb1?.AppendLine($"ListTask1[{c1}] = {_list1[c1]?.Result}");
                     c1++;
                 }
 
-                while (_list2?.Count > c2 && _list2[c2]?.Result != default)
+                if (_list2?.Count > c2)
                 {
-                    _sb2?.AppendLine($"ListTask2[{c2}] = {_list2[c2]?.Result}");
+                    _sb2?.AppendLine($"ListTask2[{c2}] = {_list2[c2]}");
                     c2++;
                 }
+
+                if ((_list1?.Count == c1 && _list2?.Count == c2 && _isCompleted) || _isCanceled)
+                {
+                    break;
+                }
             }
+
+            return;
         }
 
         public void Print()
         {
-            while (_token.IsCancellationRequested)
+            while (true)
             {
-                Console.WriteLine(string.Empty);
-
-                if (_sb1?.Length > 0)
+                if (_token.IsCancellationRequested)
                 {
-                    Console.WriteLine("List 1:");
-                    Console.WriteLine(_sb1);
+                    Console.WriteLine($"{nameof(FibonacciTask2)} has been canceled by CancellationToken!");
                 }
 
-                if (_sb2?.Length > 0)
+                if (_isCompleted || _isCanceled)
                 {
-                    Console.WriteLine("List 2:");
-                    Console.WriteLine(_sb2);
+                    Console.WriteLine($"{nameof(FibonacciTask2)} finished: {DateTime.Now:hh:mm:ss}");
+                    PrintInternal();
+                    break;
                 }
+            }
 
-                Console.WriteLine("Application has been canceled by CancellationToken!");
+            return;
+        }
 
-                return;
+        public void PrintInternal()
+        {
+            Console.WriteLine(string.Empty);
+
+            if (_sb1?.Length > 0)
+            {
+                Console.WriteLine("List 1:");
+                Console.WriteLine(_sb1);
+            }
+
+            if (_sb2?.Length > 0)
+            {
+                Console.WriteLine("List 2:");
+                Console.WriteLine(_sb2);
             }
         }
 
-        public void Wait(int s)
+        public async void WaitAsync(int s)
         {
-            Thread.Sleep(200);
-            Console.WriteLine($"Wait started: {DateTime.Now.AddMilliseconds(-200):hh:mm:ss}");
-            Thread.Sleep((s * 1000) - 200);
-
-            if (_token.IsCancellationRequested)
+            try
             {
+                _cts?.CancelAfter(s * 1000);
+                Console.WriteLine($"Wait started: {DateTime.Now:hh:mm:ss}");
+                await Task.Delay(s * 1000, _token);
                 Console.WriteLine($"Wait finished: {DateTime.Now:hh:mm:ss}");
-                return;
             }
-
-            _cts?.Cancel();
-            Console.WriteLine($"Wait finished: {DateTime.Now:hh:mm:ss}");
+            catch (OperationCanceledException ex)
+            {
+                Console.WriteLine($"{nameof(WaitAsync)}: {ex?.GetType().Name}: {ex?.Message}");
+            }
         }
     }
 }
